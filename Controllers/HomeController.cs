@@ -3,9 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using _NetCoreBlob.Models;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
-using SixLabors.ImageSharp.Processing;
-using SixLabors.ImageSharp.Formats.Jpeg;
-
 
 namespace _NetCoreBlob.Controllers;
 
@@ -64,28 +61,41 @@ public class HomeController : Controller
             {
                 // 4. 이미지 파일의 크기를 확인
                 var fileSize = file.Length;
+                // 4.1 목표 파일 크기 (2MB)
+                int targetFileSize = 2 * 1024 * 1024;
+                // 4.2 초기 압축 품질 설정
+                int compressionQuality = 100;
 
                 // 5. 2MB 보다 크면 리사이징 작업
-                if (fileSize > (1024 * 1024 * 2))
+                if (fileSize > targetFileSize)
                 {
-                    // // 5.1 이미지 리사이징
-                    //image.Mutate(x => x.Resize(500, 500)); // 너비 100px, 높이 100px로 리사이징
+                    // 5.1 이미지 리사이징
+                    //image.Mutate(x => x.Resize(500, 500)); // 너비 500px, 높이 500px로 리사이징
 
-                    // 5.2 압축 품질 설정
-                    int compressionQuality = 80;
-
-                    // 5.3 메모리 스트림에 이미지 저장
-                    using (var compressedStream = new MemoryStream())
+                    while (fileSize > targetFileSize)
                     {
-                        image.Save(compressedStream, new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder()
+                        // 5.2 품질 단계 5씩 감소
+                        compressionQuality -= 5;
+
+                        // 5.3 메모리 스트림에 이미지 저장
+                        using (var compressedStream = new MemoryStream())
                         {
-                            Quality = compressionQuality // 압축 품질 설정 (0 ~ 100)
-                        });
+                            image.Save(compressedStream, new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder()
+                            {
+                                Quality = compressionQuality
+                            });
 
-                        compressedStream.Position = 0;
+                            compressedStream.Position = 0;
 
-                        // 6. 이미지 Blob에 업로드
-                        await containerClient.UploadBlobAsync(blobName, compressedStream);
+                            // 압축된 이미지 파일 크기 확인
+                            fileSize = compressedStream.Length;
+
+                            // 파일 크기가 목표 크기보다 작은 경우에만 업로드
+                            if (fileSize <= targetFileSize)
+                            {
+                                await containerClient.UploadBlobAsync(blobName, compressedStream);
+                            }
+                        }
                     }
                 }
                 else
