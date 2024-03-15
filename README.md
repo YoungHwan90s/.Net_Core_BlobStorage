@@ -12,6 +12,7 @@
 dotnet add package Microsoft.Azure.Storage.Blob
 dotnet add package Microsoft.Extensions.Azure
 dotnet add package Azure.Storage.Blobs
+dotnet add package SixLabors.ImageSharp
 ```
 
 **2️⃣ appsettings.json**
